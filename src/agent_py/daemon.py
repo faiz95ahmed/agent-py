@@ -323,8 +323,12 @@ def spawn_daemon(cwd: Path, dap_port: int, debuggee_pid: int, break_on: str) -> 
     """Fork a detached daemon process. Returns daemon pid."""
     import subprocess
     log = open(st.log_path(cwd), "ab")
+    # Prefer the venv python (sys.prefix) over sys.executable which may
+    # resolve through symlinks to the base interpreter, losing site-packages.
+    venv_python = Path(sys.prefix) / "bin" / "python3"
+    python = str(venv_python) if venv_python.exists() else sys.executable
     cmd = [
-        sys.executable,
+        python,
         "-m",
         "agent_py.daemon",
         "--cwd",
@@ -336,6 +340,10 @@ def spawn_daemon(cwd: Path, dap_port: int, debuggee_pid: int, break_on: str) -> 
         "--break-on",
         break_on,
     ]
+    # Propagate VIRTUAL_ENV so the subprocess activates the same venv.
+    env = os.environ.copy()
+    if "VIRTUAL_ENV" not in env and sys.prefix != sys.base_prefix:
+        env["VIRTUAL_ENV"] = sys.prefix
     proc = subprocess.Popen(
         cmd,
         stdout=log,
@@ -343,6 +351,7 @@ def spawn_daemon(cwd: Path, dap_port: int, debuggee_pid: int, break_on: str) -> 
         stdin=subprocess.DEVNULL,
         start_new_session=True,
         close_fds=True,
+        env=env,
     )
     log.close()
     return proc.pid

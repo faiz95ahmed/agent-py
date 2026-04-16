@@ -133,7 +133,7 @@ class DAPClient:
         t = msg.get("type")
         if t == "response":
             req_seq = msg.get("request_seq")
-            q = self._responses.pop(req_seq, None)
+            q = self._responses.get(req_seq)
             if q is not None:
                 q.put(msg)
         elif t == "event":
@@ -165,6 +165,7 @@ class DAPClient:
         except queue.Empty:
             self._responses.pop(seq, None)
             raise DAPError(f"timed out waiting for response seq={seq}")
+        self._responses.pop(seq, None)  # clean up after success
         if not resp.get("success", False):
             raise DAPError(f"{resp.get('command', seq)} failed: {resp.get('message', 'unknown')}")
         return resp.get("body") or {}

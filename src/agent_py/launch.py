@@ -21,8 +21,13 @@ def launch_debuggee(script: str, args: list[str], cwd: Path | None = None, log_p
     """
     port = find_free_port()
     log = open(log_path, "ab") if log_path else subprocess.DEVNULL
+    # Prefer the venv python (sys.prefix) over sys.executable which may
+    # resolve through symlinks to the base interpreter, losing site-packages.
+    venv_python = Path(sys.prefix) / "bin" / "python3"
+    python = str(venv_python) if venv_python.exists() else sys.executable
     cmd = [
-        sys.executable,
+        python,
+        "-Xfrozen_modules=off",
         "-m",
         "debugpy",
         "--listen",
@@ -31,6 +36,10 @@ def launch_debuggee(script: str, args: list[str], cwd: Path | None = None, log_p
         script,
         *args,
     ]
+    # Propagate VIRTUAL_ENV so the subprocess activates the same venv.
+    env = os.environ.copy()
+    if "VIRTUAL_ENV" not in env and sys.prefix != sys.base_prefix:
+        env["VIRTUAL_ENV"] = sys.prefix
     # New session so the daemon/CLI parent doesn't forward signals unexpectedly.
     proc = subprocess.Popen(
         cmd,
@@ -40,6 +49,7 @@ def launch_debuggee(script: str, args: list[str], cwd: Path | None = None, log_p
         stdin=subprocess.DEVNULL,
         start_new_session=True,
         close_fds=True,
+        env=env,
     )
     if log is not subprocess.DEVNULL:
         # Popen inherits the fd; close our copy.
