@@ -1,0 +1,23 @@
+[project]
+name = "agent-py"
+version = "0.1.0"
+description = "LLM agent debugging of Python via debugpy + DAP"
+requires-python = ">=3.10"
+dependencies = [
+    "debugpy>=1.8.0",
+]
+
+[project.scripts]
+agent-py = "agent_py.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agent_py"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
